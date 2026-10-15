@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tra Cứu Vận Đơn - GHN Express</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            theme: { extend: { colors: { ghn: { orange: '#FA5400', dark: '#002D62', hover: '#D94800' } } } }
+        }
+    </script>
+</head>
+<body class="bg-gray-50 font-sans text-gray-800 pb-12">
+
+    <header class="bg-ghn-dark text-white shadow-md">
+        <div class="max-w-3xl mx-auto px-4 py-4 flex justify-between items-center">
+            <span class="text-xl md:text-2xl font-extrabold tracking-wider">GHN <span class="text-ghn-orange">EXPRESS</span></span>
+            <span class="bg-ghn-orange text-xs px-2.5 py-1 rounded-full font-bold">TRA CỨU HÀNH TRÌNH</span>
+        </div>
+    </header>
+
+    <main class="max-w-3xl mx-auto px-4 py-8 space-y-6">
+        <div class="bg-white p-6 md:p-8 rounded-2xl shadow-sm text-center space-y-4">
+            <h1 class="text-xl font-bold text-ghn-dark">Tra Cứu Đơn Hàng Của Bạn</h1>
+            <div class="flex max-w-md mx-auto space-x-2">
+                <input type="text" id="tracking-input" placeholder="Nhập mã vận đơn (VD: GHN123456)..." class="w-full px-4 py-3 border rounded-xl outline-none font-bold text-base uppercase focus:border-ghn-orange">
+                <button onclick="searchOrder()" id="btn-search" class="bg-ghn-orange text-white px-6 py-3 rounded-xl font-bold hover:bg-ghn-hover transition shadow shrink-0">TRA CỨU</button>
+            </div>
+        </div>
+
+        <!-- HỘP KẾT QUẢ -->
+        <div id="result-box" class="hidden bg-white p-6 md:p-8 rounded-2xl shadow-sm space-y-5 border-t-8 border-ghn-orange">
+            <div class="flex justify-between items-center border-b pb-4">
+                <div>
+                    <p class="text-xs text-gray-400 font-semibold uppercase">Mã vận đơn</p>
+                    <h3 id="res-id" class="text-2xl font-black text-ghn-orange"></h3>
+                </div>
+                <div>
+                    <span id="res-badge" class="px-3.5 py-1.5 rounded-full text-xs font-bold shadow-sm"></span>
+                </div>
+            </div>
+
+            <!-- PHẦN DỰ KIẾN NHẬN HÀNG NỔI BẬT -->
+            <div class="bg-blue-50 border border-blue-200 p-4 rounded-xl flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-blue-600 text-white p-3 rounded-xl"><i class="fa-solid fa-calendar-days text-lg"></i></div>
+                    <div>
+                        <p class="text-xs text-gray-500 font-semibold">Dự kiến giao hàng:</p>
+                        <p id="res-est" class="text-base font-bold text-blue-900"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm bg-gray-50 p-4 rounded-xl">
+                <div>
+                    <p class="text-gray-500">Đơn vị / Shop gửi:</p>
+                    <b id="res-shop" class="text-gray-900 text-base"></b>
+                </div>
+                <div>
+                    <p class="text-gray-500">Người nhận:</p>
+                    <b id="res-name" class="text-gray-900 text-base"></b> (<span id="res-phone"></span>)
+                </div>
+                <div class="md:col-span-2">
+                    <p class="text-gray-500">Địa chỉ giao hàng:</p>
+                    <b id="res-address" class="text-gray-900"></b>
+                </div>
+                <div>
+                    <p class="text-gray-500">Tiền thu hộ (COD):</p>
+                    <b id="res-cod" class="text-ghn-orange font-bold text-base"></b>
+                </div>
+            </div>
+
+            <div class="p-4 bg-orange-50 rounded-xl border border-orange-200 space-y-1">
+                <p class="text-xs text-gray-500 font-semibold"><i class="fa-solid fa-location-dot text-ghn-orange mr-1"></i> Tiến trình / Vị trí hiện tại:</p>
+                <p id="res-location" class="font-bold text-ghn-dark text-base mt-1"></p>
+                <p id="res-time" class="text-xs text-gray-400 mt-2 block"></p>
+            </div>
+        </div>
+
+        <!-- THÔNG BÁO KHÔNG TÌM THẤY -->
+        <div id="not-found" class="hidden bg-white p-8 rounded-2xl shadow-sm text-center space-y-3">
+            <i class="fa-solid fa-triangle-exclamation text-4xl text-yellow-500"></i>
+            <h3 class="font-bold text-lg text-gray-800">Không tìm thấy mã vận đơn</h3>
+            <p class="text-sm text-gray-500">Vui lòng kiểm tra lại mã vận đơn hoặc liên hệ shop để hỗ trợ.</p>
+        </div>
+    </main>
+
+    <script>
+        const BIN_ID = "6acfd2e1ac6210605a31bdc0";
+        const MASTER_KEY = "$2a$10$.xgqmeAMF8gOzGP.UlKBKu79bsP7f9GxYcPjARVOH6ZFouK5wdAz.";
+        const API_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}/latest`;
+
+        async function searchOrder() {
+            const code = document.getElementById('tracking-input').value.trim().toUpperCase();
+            if(!code) { alert('Vui lòng nhập mã vận đơn!'); return; }
+
+            const btn = document.getElementById('btn-search');
+            btn.innerText = "Đang tìm...";
+            btn.disabled = true;
+
+            try {
+                let res = await fetch(API_URL, { headers: { 'X-Master-Key': MASTER_KEY } });
+                let data = await res.json();
+                let orders = data.record.orders || [];
+                
+                let order = orders.find(x => x.id.toUpperCase() === code);
+
+                btn.innerText = "TRA CỨU";
+                btn.disabled = false;
+
+                if (order) {
+                    document.getElementById('not-found').classList.add('hidden');
+                    document.getElementById('result-box').classList.remove('hidden');
+
+                    document.getElementById('res-id').innerText = order.id;
+                    document.getElementById('res-shop').innerText = order.shopName;
+                    document.getElementById('res-name').innerText = order.receiverName;
+                    document.getElementById('res-phone').innerText = order.receiverPhone;
+                    document.getElementById('res-address').innerText = order.receiverAddress;
+                    document.getElementById('res-cod').innerText = Number(order.cod).toLocaleString() + ' đ';
+                    document.getElementById('res-location').innerText = order.location;
+                    document.getElementById('res-time').innerText = 'Cập nhật lúc: ' + order.timestamp;
+                    document.getElementById('res-est').innerText = order.estimatedDate || 'Đang cập nhật';
+                    
+                    const badge = document.getElementById('res-badge');
+                    badge.innerText = order.status;
+                    if (order.status === 'Giao thành công') {
+                        badge.className = 'px-3.5 py-1.5 rounded-full text-xs font-bold bg-green-100 text-green-800 shadow-sm';
+                    } else if (order.status === 'Đang giao hàng') {
+                        badge.className = 'px-3.5 py-1.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 shadow-sm';
+                    } else {
+                        badge.className = 'px-3.5 py-1.5 rounded-full text-xs font-bold bg-yellow-100 text-yellow-800 shadow-sm';
+                    }
+                } else {
+                    document.getElementById('result-box').classList.add('hidden');
+                    document.getElementById('not-found').classList.remove('hidden');
+                }
+            } catch(e) {
+                btn.innerText = "TRA CỨU";
+                btn.disabled = false;
+                alert('Lỗi kết nối tra cứu!');
+            }
+        }
+    </script>
+</body>
+</html>
